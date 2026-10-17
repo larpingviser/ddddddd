@@ -1,0 +1,658 @@
+local KeybindsGroup = Tabs.Keybinds:CreateBlock({Name = "Keybinds", Side = "Left"})
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+
+local tpEnabled = true -- РјРѕР¶РЅРѕ СѓР±СЂР°С‚СЊ, РµСЃР»Рё РЅРµ РЅСѓР¶РµРЅ on/off
+
+KeybindsGroup:CreateKeybind({
+	Name = "Teleport to Mouse",
+	Flag = "TPKeybind",
+	Default = "X",
+	Callback = function()
+		if not tpEnabled then
+			return
+		end
+		local character = Player.Character
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		if not hrp then
+			return
+		end
+		local targetPos = Mouse.Hit.Position
+		hrp.CFrame = CFrame.new(targetPos + Vector3.new(0, 3, 0))
+	end
+})
+-- =========================================================================
+-- LOOPGRAB POSE [DOG] (INTEGRATED INTO KEYBINDSGROUP)
+-- =========================================================================
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = Players.LocalPlayer
+
+    local loopGrabDogActive = false
+    local LoopGrabDogConn = nil
+    local SpamChar = nil
+
+    local function stopDogPose()
+        loopGrabDogActive = false
+        if LoopGrabDogConn then
+            LoopGrabDogConn:Disconnect()
+            LoopGrabDogConn = nil
+        end
+        
+        -- Restore collisions and velocities
+        if SpamChar and SpamChar.Parent and SpamChar:FindFirstChild("Head") then 
+            for _, v in pairs(SpamChar:GetChildren()) do 
+                if v:IsA("BasePart") then 
+                    v.AssemblyLinearVelocity = Vector3.zero
+                    v.AssemblyAngularVelocity = Vector3.zero
+                    v.CanCollide = true
+                end
+            end
+        end
+        SpamChar = nil
+    end
+
+    local function startDogPose()
+        local Mouse = LocalPlayer:GetMouse()
+        local target = Mouse.Target
+        if not target then 
+            Library:Notify({ Title = "System", Content = "No target found under mouse!", Duration = 3 })
+            return 
+        end
+        
+        SpamChar = target.Parent
+        local Head = SpamChar:FindFirstChild("Head")
+        local Torso = SpamChar:FindFirstChild("Torso") or SpamChar:FindFirstChild("UpperTorso")
+        local Hum = SpamChar:FindFirstChildOfClass("Humanoid")
+        
+        if not (Torso and Head and Hum) then 
+            SpamChar = nil
+            Library:Notify({ Title = "System", Content = "Invalid character target!", Duration = 3 })
+            return 
+        end
+        
+        loopGrabDogActive = true
+        local snoRemote = ReplicatedStorage:WaitForChild("GrabEvents", 5) and ReplicatedStorage.GrabEvents:FindFirstChild("SetNetworkOwner")
+        local myChar = LocalPlayer.Character
+        local hrp = myChar and myChar:FindFirstChild("HumanoidRootPart")
+        
+        Library:Notify({ Title = "Dog Pose", Content = "Locked onto " .. SpamChar.Name, Duration = 3 })
+
+        LoopGrabDogConn = RunService.Heartbeat:Connect(function()
+            if not loopGrabDogActive or not hrp or not SpamChar or not SpamChar.Parent then
+                stopDogPose()
+                return
+            end
+            
+            Torso = SpamChar:FindFirstChild("Torso") or SpamChar:FindFirstChild("UpperTorso")
+            Head = SpamChar:FindFirstChild("Head")
+            if not Torso or not Head then 
+                stopDogPose()
+                return 
+            end
+            
+            -- Claim Network Ownership
+            if snoRemote then
+                pcall(function() snoRemote:FireServer(Head, Head.CFrame) end)
+            end
+            
+            -- Ghosting collisions
+            for _, x in pairs(SpamChar:GetDescendants()) do 
+                if x:IsA("BasePart") then 
+                    x.CanCollide = false
+                end
+            end
+            
+            Hum.Health = 100 -- Prevent dying from physics glitches
+            
+            -- Force Dog Pose CFrames relative to your HRP
+            Torso.CFrame = hrp.CFrame * CFrame.new(0, -1, -2) * CFrame.Angles(math.rad(-90), 0, math.rad(180))
+            Head.CFrame = Torso.CFrame * CFrame.new(0, 1, 0) * CFrame.Angles(math.rad(90), 0, 0)
+            
+            local lArm = SpamChar:FindFirstChild("Left Arm")
+            if lArm then lArm.CFrame = Torso.CFrame * CFrame.new(-1, 0.5, 0) * CFrame.Angles(math.rad(60), 0, math.rad(-30)) end
+            
+            local rArm = SpamChar:FindFirstChild("Right Arm")
+            if rArm then rArm.CFrame = Torso.CFrame * CFrame.new(1, 0.5, 0) * CFrame.Angles(math.rad(60), 0, math.rad(30)) end
+            
+            local lLeg = SpamChar:FindFirstChild("Left Leg")
+            if lLeg then lLeg.CFrame = Torso.CFrame * CFrame.new(-0.5, -1, 0) * CFrame.Angles(math.rad(40), 0, 0) end
+            
+            local rLeg = SpamChar:FindFirstChild("Right Leg")
+            if rLeg then rLeg.CFrame = Torso.CFrame * CFrame.new(0.5, -1, 0) * CFrame.Angles(math.rad(40), 0, 0) end
+        end)
+    end
+-- =========================================================================
+-- LOOPGRAB POSE [DOG] (REFINED ANATOMY)
+-- =========================================================================
+do
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local LocalPlayer = Players.LocalPlayer
+
+    local loopGrabDogActive = false
+    local LoopGrabDogConn = nil
+    local SpamChar = nil
+
+    local function stopDogPose()
+        loopGrabDogActive = false
+        if LoopGrabDogConn then
+            LoopGrabDogConn:Disconnect()
+            LoopGrabDogConn = nil
+        end
+        if SpamChar and SpamChar.Parent then 
+            for _, v in pairs(SpamChar:GetDescendants()) do 
+                if v:IsA("BasePart") then 
+                    v.AssemblyLinearVelocity = Vector3.zero
+                    v.CanCollide = true
+                end
+            end
+        end
+        SpamChar = nil
+    end
+
+    local function startDogPose()
+        local Mouse = LocalPlayer:GetMouse()
+        local target = Mouse.Target
+        if not target or not target.Parent:FindFirstChild("Humanoid") then return end
+        
+        SpamChar = target.Parent
+        loopGrabDogActive = true
+        
+        local snoRemote = ReplicatedStorage:FindFirstChild("GrabEvents") and ReplicatedStorage.GrabEvents:FindFirstChild("SetNetworkOwner")
+        local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        
+        LoopGrabDogConn = RunService.Heartbeat:Connect(function()
+            if not loopGrabDogActive or not hrp or not SpamChar:FindFirstChild("Torso") then stopDogPose() return end
+            
+            local Torso = SpamChar.Torso
+            local Head = SpamChar:FindFirstChild("Head")
+            
+            -- Network Ownership
+            if snoRemote then pcall(function() snoRemote:FireServer(Head, Head.CFrame) end) end
+            
+            -- Dog Math: Torso horizontal, limbs tucked under
+            Torso.CFrame = hrp.CFrame * CFrame.new(0, -1.2, -2.5) * CFrame.Angles(math.rad(-90), 0, 0)
+            
+            if Head then 
+                Head.CFrame = Torso.CFrame * CFrame.new(0, 1.3, -0.2) * CFrame.Angles(math.rad(45), 0, 0) 
+            end
+            
+            -- Limbs as Paws
+            local LArm = SpamChar:FindFirstChild("Left Arm")
+            local RArm = SpamChar:FindFirstChild("Right Arm")
+            local LLeg = SpamChar:FindFirstChild("Left Leg")
+            local RLeg = SpamChar:FindFirstChild("Right Leg")
+            
+            if LArm then LArm.CFrame = Torso.CFrame * CFrame.new(-0.8, 0.5, 0.5) * CFrame.Angles(math.rad(90), 0, math.rad(20)) end
+            if RArm then RArm.CFrame = Torso.CFrame * CFrame.new(0.8, 0.5, 0.5) * CFrame.Angles(math.rad(90), 0, math.rad(-20)) end
+            if LLeg then LLeg.CFrame = Torso.CFrame * CFrame.new(-0.6, -1.2, 0.5) * CFrame.Angles(math.rad(90), 0, math.rad(10)) end
+            if RLeg then RLeg.CFrame = Torso.CFrame * CFrame.new(0.6, -1.2, 0.5) * CFrame.Angles(math.rad(90), 0, math.rad(-10)) end
+            
+            -- Disable collisions so they don't bounce
+            for _, p in pairs(SpamChar:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end
+        end)
+    end
+
+    KeybindsGroup:CreateKeybind({
+        Name = "Dog Pose Quick V1",
+        Flag = "DogPoseKey",
+        Default = "T",
+        Callback = function()
+            if loopGrabDogActive then
+                stopDogPose()
+            else
+                startDogPose()
+            end
+        end
+    })
+end
+    -- Auto-bind for T (Spam keybind) within KeybindsGroup
+    KeybindsGroup:CreateKeybind({
+        Name = "Dog Pose Quick V2",
+        Flag = "DogPoseKey",
+        Default = "T",
+        Callback = function()
+            local newState = not loopGrabDogActive
+            SetToggleState("LoopGrab_Dog", newState)
+            
+            -- If you want the toggle visually updated in the UI, you may need to call Options["LoopGrab_Dog"]:Set(newState) depending on your UI library.
+            
+            if newState then
+                startDogPose()
+            else
+                stopDogPose()
+                Library:Notify({ Title = "Dog Pose", Content = "Deactivated", Duration = 3 })
+            end
+        end
+    })
+end
+do
+    -- // Block Setup \\ --
+    local FigureMain = Tabs.Grab:CreateBlock({Name = "Figure Grab Main", Side = "Left"})
+    local FigurePoses = Tabs.Grab:CreateBlock({Name = "Figure Poses", Side = "Right"})
+    local FigureOffsets = Tabs.Grab:CreateBlock({Name = "Limb Offsets", Side = "Right"})
+
+    -- // Module Initialization \\ --
+    getgenv().FigureGrabModule = getgenv().FigureGrabModule or {}
+    local FGM = getgenv().FigureGrabModule
+
+    FGM.Players = game:GetService("Players")
+    FGM.RunService = game:GetService("RunService")
+    FGM.ReplicatedStorage = game:GetService("ReplicatedStorage")
+    FGM.UserInputService = game:GetService("UserInputService")
+
+    FGM.LocalPlayer = FGM.Players.LocalPlayer
+    FGM.Mouse = FGM.LocalPlayer:GetMouse()
+
+    FGM.GrabEvents = FGM.ReplicatedStorage:WaitForChild("GrabEvents")
+    FGM.SetNetworkOwner = FGM.GrabEvents:WaitForChild("SetNetworkOwner")
+    
+    -- Toys variables for AutoRagdoll
+    FGM.MenuToys = FGM.ReplicatedStorage:WaitForChild("MenuToys")
+    FGM.ToySpawn = FGM.MenuToys:WaitForChild("SpawnToyRemoteFunction")
+    FGM.DestroyToy = FGM.MenuToys:WaitForChild("DestroyToy")
+
+    FGM.State = {
+        FigureGrabEnabled = false,
+        FigureGrabConnection = nil,
+        TargetCharacter = nil,
+        AnimationCopyEnabled = false,
+        VectorZero = Vector3.new(0, 0, 0),
+        
+        -- Auto Ragdoll State
+        AutoRagdollToggle = false,
+        AutoRagdollEnabled = false,
+        AutoRagdollConnection = nil,
+        RagdollPallet = nil,
+        RagdollSoundPart = nil,
+        SeveralEnabled = false,
+        SeveralTargets = {}
+    }
+
+    FGM.Configuration = {
+        LineDistance = 0,
+        HoldPosition = {X = 0, Y = 0, Z = -5},
+        HoldRotation = {X = 0, Y = 0, Z = 0},
+        LeftArmPosition = {X = 0, Y = 0, Z = 0},
+        LeftArmRotation = {X = 0, Y = 0, Z = 0},
+        RightArmPosition = {X = 0, Y = 0, Z = 0},
+        RightArmRotation = {X = 0, Y = 0, Z = 0},
+        LeftLegPosition = {X = 0, Y = 0, Z = 0},
+        LeftLegRotation = {X = 0, Y = 0, Z = 0},
+        RightLegPosition = {X = 0, Y = 0, Z = 0},
+        RightLegRotation = {X = 0, Y = 0, Z = 0},
+        HeadPosition = {X = 0, Y = 0, Z = 0},
+        HeadRotation = {X = 0, Y = 0, Z = 0}
+    }
+
+    FGM.Presets = {
+        Pose1 = {HoldPosition={X=0,Y=0,Z=-7.5},HoldRotation={X=90,Y=0,Z=108},LeftArmPosition={X=-1.5,Y=1,Z=-1},LeftArmRotation={X=283,Y=0,Z=0},RightArmPosition={X=1.5,Y=0.5,Z=1},RightArmRotation={X=270,Y=0,Z=0},LeftLegPosition={X=0.5,Y=-1.5,Z=0.5},LeftLegRotation={X=312,Y=0,Z=0},RightLegPosition={X=-0.5,Y=-1.5,Z=0.5},RightLegRotation={X=283,Y=0,Z=0},HeadPosition={X=0,Y=1.5,Z=0},HeadRotation={X=0,Y=0,Z=0}},
+        Pose2 = {HoldPosition={X=0,Y=-1.5,Z=-12.5},HoldRotation={X=272,Y=0,Z=0},LeftArmPosition={X=-1,Y=1,Z=-0.5},LeftArmRotation={X=90,Y=0,Z=0},RightArmPosition={X=1,Y=1,Z=-0.5},RightArmRotation={X=90,Y=0,Z=0},LeftLegPosition={X=1,Y=-1,Z=-0.5},LeftLegRotation={X=90,Y=0,Z=0},RightLegPosition={X=-1,Y=-1,Z=-0.5},RightLegRotation={X=90,Y=0,Z=0},HeadPosition={X=0,Y=1,Z=1},HeadRotation={X=90,Y=0,Z=0}},
+        Pose3 = {HoldPosition={X=0,Y=-5.5,Z=-4},HoldRotation={X=0,Y=0,Z=0},LeftArmPosition={X=1,Y=7.5,Z=1.5},LeftArmRotation={X=0,Y=0,Z=0},RightArmPosition={X=1,Y=6,Z=1.5},RightArmRotation={X=0,Y=0,Z=0},LeftLegPosition={X=0.5,Y=5,Z=1.5},LeftLegRotation={X=0,Y=0,Z=92},RightLegPosition={X=-0.5,Y=5,Z=1.5},RightLegRotation={X=0,Y=0,Z=90},HeadPosition={X=0,Y=0,Z=0},HeadRotation={X=0,Y=0,Z=0}},
+        Pose4 = {HoldPosition={X=1.5,Y=-8.5,Z=-1.5},HoldRotation={X=0,Y=0,Z=0},LeftArmPosition={X=0,Y=0,Z=0},LeftArmRotation={X=0,Y=0,Z=0},RightArmPosition={X=0,Y=0,Z=0},RightArmRotation={X=0,Y=0,Z=0},LeftLegPosition={X=0,Y=0,Z=0},LeftLegRotation={X=0,Y=0,Z=0},RightLegPosition={X=1.5,Y=0,Z=0},RightLegRotation={X=0,Y=0,Z=0},HeadPosition={X=0,Y=9,Z=0},HeadRotation={X=0,Y=0,Z=0}},
+        Pose5 = {HoldPosition={X=0,Y=-3,Z=-6},HoldRotation={X=270,Y=0,Z=0},LeftArmPosition={X=-1,Y=0.5,Z=0},LeftArmRotation={X=180,Y=0,Z=0},RightArmPosition={X=1,Y=0.5,Z=0},RightArmRotation={X=180,Y=0,Z=0},LeftLegPosition={X=0,Y=-3,Z=0},LeftLegRotation={X=0,Y=0,Z=0},RightLegPosition={X=0,Y=-2,Z=0.5},RightLegRotation={X=45,Y=0,Z=0},HeadPosition={X=0,Y=1.5,Z=-0.5},HeadRotation={X=270,Y=0,Z=0}},
+        Pose6 = {HoldPosition={X=5.5,Y=0.5,Z=-1.5},HoldRotation={X=345,Y=39,Z=0},LeftArmPosition={X=2,Y=0.5,Z=0},LeftArmRotation={X=0,Y=43,Z=121},RightArmPosition={X=-2,Y=0,Z=0},RightArmRotation={X=64,Y=112,Z=0},LeftLegPosition={X=-0.5,Y=-2,Z=0},LeftLegRotation={X=349,Y=0,Z=360},RightLegPosition={X=0.5,Y=-2,Z=0},RightLegRotation={X=345,Y=360,Z=10},HeadPosition={X=0,Y=1.5,Z=0},HeadRotation={X=0,Y=344,Z=0}},
+        Pose7 = {HoldPosition={X=0,Y=-2,Z=-10},HoldRotation={X=90,Y=0,Z=0},LeftArmPosition={X=-1.5,Y=0,Z=0},LeftArmRotation={X=270,Y=0,Z=315},RightArmPosition={X=1.5,Y=0,Z=0},RightArmRotation={X=270,Y=0,Z=45},LeftLegPosition={X=-1,Y=-1.5,Z=0},LeftLegRotation={X=90,Y=0,Z=0},RightLegPosition={X=1,Y=-1.5,Z=0},RightLegRotation={X=90,Y=0,Z=0},HeadPosition={X=0,Y=1.5,Z=0},HeadRotation={X=0,Y=0,Z=0}},
+        JojoStand = {HoldPosition={X=-4.5,Y=0.5,Z=-1.5},HoldRotation={X=8,Y=349,Z=0},LeftArmPosition={X=1.5,Y=0,Z=0},LeftArmRotation={X=15,Y=62,Z=41},RightArmPosition={X=-1.5,Y=0.5,Z=-0.5},RightArmRotation={X=65,Y=149,Z=6},LeftLegPosition={X=-0.5,Y=-2,Z=0},LeftLegRotation={X=349,Y=0,Z=360},RightLegPosition={X=0.5,Y=-2,Z=0},RightLegRotation={X=345,Y=360,Z=10},HeadPosition={X=0,Y=1.5,Z=0},HeadRotation={X=0,Y=344,Z=0}}
+    }
+
+    -- // Core Functions \\ --
+
+    function FGM.GetCharacter(player)
+        local character = player.Character
+        if not character and player.CharacterAdded then
+            character = player.CharacterAdded:Wait()
+        end
+        return character
+    end
+
+    function FGM.CopyAnimationsFromLimbs()
+        if not FGM.State.AnimationCopyEnabled or not FGM.State.TargetCharacter then return end
+        
+        local MyCharacter = FGM.GetCharacter(FGM.LocalPlayer)
+        if not MyCharacter then return end
+        
+        local MyHRP = MyCharacter:FindFirstChild("HumanoidRootPart")
+        local MyTorso = MyCharacter:FindFirstChild("Torso")
+        local TargetTorso = FGM.State.TargetCharacter:FindFirstChild("Torso")
+
+        if not MyHRP or not MyTorso or not TargetTorso then return end
+
+        local holdCFrame = MyHRP.CFrame * CFrame.new(
+            FGM.Configuration.HoldPosition.X, FGM.Configuration.HoldPosition.Y, FGM.Configuration.HoldPosition.Z
+        ) * CFrame.Angles(
+            math.rad(FGM.Configuration.HoldRotation.X), math.rad(FGM.Configuration.HoldRotation.Y), math.rad(FGM.Configuration.HoldRotation.Z)
+        )
+
+        TargetTorso.CFrame = holdCFrame
+        local torsoRelative = MyHRP.CFrame:ToObjectSpace(MyTorso.CFrame)
+        TargetTorso.CFrame = TargetTorso.CFrame * torsoRelative.Rotation
+        
+        TargetTorso.Velocity = FGM.State.VectorZero
+        TargetTorso.RotVelocity = FGM.State.VectorZero
+
+        local limbs = {"Head", "Right Arm", "Left Arm", "Right Leg", "Left Leg"}
+        for _, limbName in ipairs(limbs) do
+            local myPart = MyCharacter:FindFirstChild(limbName)
+            local targetPart = FGM.State.TargetCharacter:FindFirstChild(limbName)
+
+            if myPart and targetPart then
+                local relative = MyTorso.CFrame:ToObjectSpace(myPart.CFrame)
+                targetPart.CFrame = TargetTorso.CFrame:ToWorldSpace(relative)
+                targetPart.Velocity = FGM.State.VectorZero
+                targetPart.RotVelocity = FGM.State.VectorZero
+            end
+        end
+    end
+
+    function FGM.ToggleAutoRagdoll(enabled)
+        FGM.State.AutoRagdollEnabled = enabled
+        if FGM.State.AutoRagdollConnection then
+            FGM.State.AutoRagdollConnection:Disconnect()
+            FGM.State.AutoRagdollConnection = nil
+        end
+        if not enabled then
+            if FGM.State.RagdollPallet then
+                pcall(function() FGM.DestroyToy:FireServer(FGM.State.RagdollPallet) end)
+            end
+            FGM.State.RagdollPallet = nil
+            FGM.State.RagdollSoundPart = nil
+            return
+        end
+        
+        task.spawn(function()
+            local myChar = FGM.LocalPlayer.Character
+            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+            if not myHRP then return end
+            
+            FGM.MyToys = workspace:FindFirstChild(FGM.LocalPlayer.Name .. "SpawnedInToys")
+            if not FGM.MyToys then return end
+
+            local pallet = FGM.MyToys:FindFirstChild("RagdollPallet") or FGM.MyToys:FindFirstChild("PalletLightBrown")
+            if not pallet then
+                FGM.ToySpawn:InvokeServer("PalletLightBrown", myHRP.CFrame * CFrame.new(5, 5, 20), Vector3.new(0, 0, 0))
+                local t = tick() + 5
+                repeat task.wait(0.05) until FGM.MyToys:FindFirstChild("PalletLightBrown") or tick() > t
+                pallet = FGM.MyToys:FindFirstChild("PalletLightBrown")
+            end
+            if not pallet then return end
+            
+            pallet.Name = "RagdollPallet"
+            local soundPart = pallet:WaitForChild("SoundPart", 5)
+            if not soundPart then return end
+            
+            local t2 = tick() + 3
+            repeat
+                FGM.SetNetworkOwner:FireServer(soundPart, soundPart.CFrame)
+                task.wait()
+            until soundPart:FindFirstChild("PartOwner") or tick() > t2
+            
+            soundPart.AssemblyLinearVelocity = Vector3.new(0, 10000, 0)
+            for _, v in pairs(pallet:GetDescendants()) do
+                if v:IsA("BasePart") then v.Transparency = 1 v.CanCollide = false end
+            end
+            
+            FGM.State.RagdollPallet = pallet
+            FGM.State.RagdollSoundPart = soundPart
+            
+            FGM.State.AutoRagdollConnection = FGM.RunService.Heartbeat:Connect(function()
+                if not FGM.State.AutoRagdollEnabled then return end
+                local sp = FGM.State.RagdollSoundPart
+                if not sp or not sp.Parent then
+                    if FGM.State.AutoRagdollConnection then
+                        FGM.State.AutoRagdollConnection:Disconnect()
+                        FGM.State.AutoRagdollConnection = nil
+                    end
+                    FGM.State.RagdollPallet = nil
+                    FGM.State.RagdollSoundPart = nil
+                    return
+                end
+                
+                local targets = {}
+                if FGM.State.FigureGrabEnabled and FGM.State.TargetCharacter then
+                    table.insert(targets, FGM.State.TargetCharacter)
+                end
+                if FGM.State.SeveralEnabled then
+                    for _, e in ipairs(FGM.State.SeveralTargets) do table.insert(targets, e.char) end
+                end
+                
+                for _, targetChar in ipairs(targets) do
+                    local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+                    local hum = targetChar:FindFirstChild("Humanoid")
+                    if hrp and hum then
+                        local ragdolled = hum:FindFirstChild("Ragdolled")
+                        if ragdolled and ragdolled.Value == false then
+                            task.spawn(function()
+                                sp.AssemblyLinearVelocity = Vector3.new(0, 100, 0)
+                                sp.CFrame = hrp.CFrame
+                                task.wait(0.05)
+                                if sp and sp.Parent then sp.CFrame = CFrame.new(0, 1e9, 0) end
+                            end)
+                        end
+                    end
+                end
+            end)
+        end)
+    end
+
+    function FGM.ToggleFigureGrab()
+        if not FGM.State.FigureGrabEnabled then
+            local MouseTarget = FGM.Mouse.Target
+            if not MouseTarget then
+                Library:Notify({Title = "Error", Content = "Aim at a player first", Duration = 3})
+                return
+            end
+            
+            FGM.State.TargetCharacter = MouseTarget.Parent
+            local MyCharacter = FGM.GetCharacter(FGM.LocalPlayer)
+            
+            if not FGM.State.TargetCharacter or not MyCharacter then
+                Library:Notify({Title = "Error", Content = "Invalid target", Duration = 3})
+                return
+            end
+            
+            local BodyParts = {"Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
+            local TargetTorso = FGM.State.TargetCharacter:FindFirstChild("Torso")
+            
+            if not TargetTorso then
+                Library:Notify({Title = "Error", Content = "Torso not found", Duration = 3})
+                return
+            end
+            
+            for _, partName in pairs(BodyParts) do
+                local part = FGM.State.TargetCharacter:FindFirstChild(partName)
+                if part then
+                    part.Anchored = false
+                    part.CanCollide = true
+                    part.Massless = true
+                end
+            end
+     
+            FGM.State.FigureGrabEnabled = true
+            FGM.Configuration.LineDistance = 5
+            
+            if FGM.State.FigureGrabConnection then
+                FGM.State.FigureGrabConnection:Disconnect()
+            end
+            
+            FGM.State.FigureGrabConnection = FGM.RunService.Heartbeat:Connect(function()
+                if not FGM.State.TargetCharacter or not MyCharacter then
+                    FGM.State.FigureGrabEnabled = false
+                    if FGM.State.FigureGrabConnection then
+                        FGM.State.FigureGrabConnection:Disconnect()
+                    end
+                    return
+                end
+                
+                local MyRoot = MyCharacter:FindFirstChild("HumanoidRootPart")
+                if not MyRoot then return end
+                
+                local holdCFrame = MyRoot.CFrame * CFrame.new(
+                    FGM.Configuration.HoldPosition.X, 
+                    FGM.Configuration.HoldPosition.Y, 
+                    FGM.Configuration.HoldPosition.Z
+                )
+                
+                TargetTorso.CFrame = holdCFrame * CFrame.Angles(
+                    math.rad(FGM.Configuration.HoldRotation.X), 
+                    math.rad(FGM.Configuration.HoldRotation.Y), 
+                    math.rad(FGM.Configuration.HoldRotation.Z)
+                )
+                TargetTorso.Velocity = FGM.State.VectorZero
+                TargetTorso.RotVelocity = FGM.State.VectorZero
+                
+                if FGM.State.AnimationCopyEnabled then
+                    FGM.CopyAnimationsFromLimbs()
+                else
+                    for _, partName in pairs(BodyParts) do
+                        local part = FGM.State.TargetCharacter:FindFirstChild(partName)
+                        if part and part ~= TargetTorso then
+                            local posKey = string.gsub(partName, " ", "") .. "Position"
+                            local rotKey = string.gsub(partName, " ", "") .. "Rotation"
+                            
+                            if FGM.Configuration[posKey] and FGM.Configuration[rotKey] then
+                                part.CFrame = TargetTorso.CFrame * CFrame.new(
+                                    FGM.Configuration[posKey].X, FGM.Configuration[posKey].Y, FGM.Configuration[posKey].Z
+                                ) * CFrame.Angles(
+                                    math.rad(FGM.Configuration[rotKey].X), math.rad(FGM.Configuration[rotKey].Y), math.rad(FGM.Configuration[rotKey].Z)
+                                )
+                                part.Velocity = FGM.State.VectorZero
+                                part.RotVelocity = FGM.State.VectorZero
+                            end
+                        end
+                    end
+                end
+                
+                FGM.SetNetworkOwner:FireServer(MouseTarget, holdCFrame)
+            end)
+            
+            -- Trigger Auto Ragdoll if UI toggle is active
+            if FGM.State.AutoRagdollToggle then
+                FGM.ToggleAutoRagdoll(true)
+            end
+            
+            Library:Notify({Title = "Figure Grab", Content = "Figure Grab Activated", Duration = 3})
+        else
+            FGM.State.FigureGrabEnabled = false
+            FGM.State.AnimationCopyEnabled = false
+            if FGM.State.FigureGrabConnection then
+                FGM.State.FigureGrabConnection:Disconnect()
+                FGM.State.FigureGrabConnection = nil
+            end
+            
+            -- Stop Auto Ragdoll
+            FGM.ToggleAutoRagdoll(false)
+            
+            Library:Notify({Title = "Figure Grab", Content = "Figure Grab Deactivated", Duration = 3})
+        end
+    end
+
+    function FGM.ResetPose()
+        for section, values in pairs(FGM.Configuration) do
+            if typeof(values) == "table" then
+                for axis, _ in pairs(values) do
+                    values[axis] = 0
+                end
+            end
+        end
+    end
+
+    function FGM.ApplyPreset(presetName)
+        local preset = FGM.Presets[presetName]
+        if preset then
+            for section, values in pairs(preset) do
+                if FGM.Configuration[section] then
+                    for axis, value in pairs(values) do
+                        FGM.Configuration[section][axis] = value
+                    end
+                end
+            end
+        end
+    end
+
+    function FGM.UpdateConfig(section, axis, value)
+        if FGM.Configuration[section] and FGM.Configuration[section][axis] ~= nil then
+            FGM.Configuration[section][axis] = value
+        end
+    end
+
+
+    -- // UI Elements (XOCU) \\ --
+
+    FigureMain:CreateKeybind({
+        Name = "Toggle Figure Grab (Aim at target)",
+        Flag = "FG_ToggleKeybind",
+        Default = "V",
+        Callback = function()
+            FGM.ToggleFigureGrab()
+        end,
+    })
+
+    FigureMain:CreateToggle({
+        Name = "Auto Ragdoll Target",
+        Flag = "FG_AutoRagdollToggle",
+        Default = false,
+        Callback = function(Value)
+            FGM.State.AutoRagdollToggle = Value
+            if FGM.State.FigureGrabEnabled then
+                FGM.ToggleAutoRagdoll(Value)
+            end
+        end,
+    })
+
+    FigureMain:CreateToggle({
+        Name = "Copy My Animations to Target",
+        Flag = "FG_AnimCopyToggle",
+        Default = false,
+        Callback = function(Value)
+            FGM.State.AnimationCopyEnabled = Value
+            if Value then
+                Library:Notify({Title = "Animation Copy", Content = "Now copying your animations!", Duration = 3})
+            else
+                Library:Notify({Title = "Animation Copy", Content = "Manual control restored", Duration = 3})
+            end
+        end,
+    })
+
+    -- Saves / Presets
+    FigurePoses:CreateButton({ Name = "Reset Pose", Callback = function() FGM.ResetPose() end })
+    FigurePoses:CreateButton({ Name = "Pose 1 Jesus", Callback = function() FGM.ApplyPreset("Pose1") end })
+    FigurePoses:CreateButton({ Name = "Pose 2 Dog", Callback = function() FGM.ApplyPreset("Pose2") end })
+    FigurePoses:CreateButton({ Name = "Pose 3 L", Callback = function() FGM.ApplyPreset("Pose3") end })
+    FigurePoses:CreateButton({ Name = "Pose 4 Head Hold", Callback = function() FGM.ApplyPreset("Pose4") end })
+    FigurePoses:CreateButton({ Name = "Pose 5 Handstand", Callback = function() FGM.ApplyPreset("Pose5") end })
+    FigurePoses:CreateButton({ Name = "Pose 6 Stand 1", Callback = function() FGM.ApplyPreset("Pose6") end })
+    FigurePoses:CreateButton({ Name = "Pose 7 T-Pose", Callback = function() FGM.ApplyPreset("Pose7") end })
+    FigurePoses:CreateButton({ Name = "Pose 8 Stand 2", Callback = function() FGM.ApplyPreset("JojoStand") end })
+
+    -- Offset Sliders
+    local function CreateLimbSliders(limbName, configKey)
+        for _, axis in ipairs({"X", "Y", "Z"}) do
+            FigureOffsets:CreateSlider({
+                Name = limbName .. " Pos " .. axis, Flag = "FG_" .. configKey .. "Pos" .. axis,
+                Min = -50, Max = 50, Default = 0, Rounding = 1,
+                Callback = function(value) FGM.UpdateConfig(configKey .. "Position", axis, value) end
+            })
+            FigureOffsets:CreateSlider({
+                Name = limbName .. " Rot " .. axis, Flag = "FG_" .. configKey .. "Rot" .. axis,
+                Min = 0, Max = 360, Default = 0, Rounding = 0,
+                Callback = function(value) FGM.UpdateConfig(configKey .. "Rotation", axis, value) end
+            })
+        end
+    end
+
+    CreateLimbSliders("Hold (Torso)", "Hold")
+    CreateLimbSliders("Left Arm", "LeftArm")
+    CreateLimbSliders("Right Arm", "RightArm")
+    CreateLimbSliders("Left Leg", "LeftLeg")
+    CreateLimbSliders("Right Leg", "RightLeg")
+    CreateLimbSliders("Head", "Head")
+
+end

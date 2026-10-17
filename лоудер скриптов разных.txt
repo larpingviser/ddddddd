@@ -1,0 +1,1341 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local GuiService = game:GetService("GuiService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local CFG_DIR = "KazbekScript"
+local CFG_FILE = CFG_DIR .. "/configs.json"
+local STATE_FILE = CFG_DIR .. "/state.json"
+local VERSION = 8
+
+local IS_MOBILE = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local IS_TABLET = UIS.TouchEnabled and UIS.KeyboardEnabled
+local IS_PC = UIS.KeyboardEnabled and not UIS.TouchEnabled
+local IS_TOUCH = IS_MOBILE or IS_TABLET
+local PLATFORM = IS_MOBILE and "Mobile" or IS_TABLET and "Tablet" or "PC"
+
+local function mkdir()
+    if type(makefolder) == "function" then pcall(makefolder, CFG_DIR) end
+end
+mkdir()
+
+local function readFile(path)
+    if type(readfile) ~= "function" then return nil end
+    local ok, value = pcall(readfile, path)
+    if ok and type(value) == "string" then return value end
+end
+
+local function writeFile(path, value)
+    if type(writefile) ~= "function" then return false end
+    return pcall(writefile, path, value)
+end
+
+local function copyText(value)
+    if type(setclipboard) == "function" and pcall(setclipboard, value) then return true end
+    if type(toclipboard) == "function" and pcall(toclipboard, value) then return true end
+    if type(writeclipboard) == "function" and pcall(writeclipboard, value) then return true end
+    return false
+end
+
+local function httpGet(url)
+    if game.HttpGet then
+        local ok, body = pcall(function() return game:HttpGet(url) end)
+        if ok and type(body) == "string" then return true, body end
+    end
+    return false, "HttpGet failed"
+end
+
+local function executorName()
+    if type(identifyexecutor) == "function" then
+        local ok, name = pcall(identifyexecutor)
+        if ok and name then return tostring(name) end
+    end
+    if type(getexecutorname) == "function" then
+        local ok, name = pcall(getexecutorname)
+        if ok and name then return tostring(name) end
+    end
+    return "Unknown"
+end
+
+local function hasLoadstring()
+    if type(loadstring) == "function" then return true, "loadstring" end
+    if type(load) == "function" then return true, "load" end
+    local g = getgenv and getgenv()
+    if g and type(g.loadstring) == "function" then return true, "getgenv().loadstring" end
+    return false, "none"
+end
+
+local function getLoader()
+    if type(loadstring) == "function" then return loadstring end
+    if type(load) == "function" then return load end
+    local g = getgenv and getgenv()
+    if g and type(g.loadstring) == "function" then return g.loadstring end
+    return nil
+end
+
+local SOURCES = {
+    {name="Mercury", url="https://api.luarmor.net/files/v4/loaders/f1c0042517fb7c395b209cc44e65b1d6.lua", note="Reversed loader"},
+    {name="Wraith", url="https://gist.githubusercontent.com/shadowedits0508-cmyk/71ef7e58d51496c7ee101298d3b11c65/raw/d4ef4aa49d3670ff90f55484894d56fb597e86c6/gistfile1.txt"},
+    {name="Vortex", url="https://rawscripts.net/raw/Fling-Things-and-People-FTAP-Vortex-Hub-228539"},
+    {name="Apex V2", url="https://gist.githubusercontent.com/shadowedits0508-cmyk/a21207b03d248aca12465f89aec3b7d6/raw/ae5ec3d8703f70a584d2b407063e1c642fc2165e/gistfile1.txt"},
+    {name="TheWorst", url="https://raw.githubusercontent.com/shadowedits0508-cmyk/theworstcrk/refs/heads/main/message%20(3).txt"},
+    {name="NeverLose", url="https://pastefy.app/ATPWcoEb/raw"},
+    {name="Blitz", url="https://pastefy.app/BHQ1xXjK/raw"},
+    {name="XOCU", url="https://pastefy.app/81cO6FMI/raw"},
+    {name="XOCU 2", url="https://raw.githubusercontent.com/dray29471-del/VIZERbest/refs/heads/main/VIZERbest.lua"},
+    {name="Oblivion", url="https://gist.githubusercontent.com/safonovmaksima-commits/65ca3fad4743c91ebbf5fadf5bebe066/raw/ed95e5a9b06de9b134422c0531e3aa406cd9af7b/vhr222"},
+    {name="Fake resonance", url="https://pastefy.app/FNbok8Ua/raw", note="Visual-only"},
+    {name="Unstable", url="https://doitenroi.win/paste/rlKgQK/raw"},
+    {name="Bloody v2", url="https://raw.githubusercontent.com/celestialteam/youhateme/refs/heads/main/BloodyPremiumCrack.lua", note="Obfuscated"},
+    {name="Pluton", url="https://doitenroi.win/paste/A1x9Ra/raw"},
+    {name="Poop hub premium", url="https://doitenroi.win/paste/dOiycS/raw"},
+    {name="Endoris", url="https://gist.githubusercontent.com/shadowedits0508-cmyk/581002218f4c96b603e04bbbf46a1977/raw/bf02197780bf350da37bef8224422c170d619b1a/gistfile1.txt"},
+    {name="Lunar", url="https://pastefy.app/bscLo4n8/raw"},
+    {name="Unknown hub", url="https://pastefy.app/LXAlE7iF/raw", note="kotakbas client"},
+    {name="Ragalic", url="https://pastefy.app/Chk68Dbv/raw"},
+    {name="Rr9", url="https://pastefy.app/aVIt6mOJ/raw"},
+    {name="Allun", url="https://pastefy.app/OrWdkmOz/raw"},
+    {name="Mobile trigger bot", url="https://pastefy.app/srfwxE0M/raw"},
+    {name="Fanatic ftap", url="https://pastefy.app/oEI0KErG/raw", note="External key may be required"},
+    {name="Fatalytyz", url="https://pastefy.app/q8DLEIpm/raw"},
+    {name="Fosfor visuals", url="https://pastefy.app/I0P2dXal/raw"},
+    {name="Tokra", url="https://pastefy.app/ccBEGiz7/raw"},
+    {name="Ekonans", url="https://pastefy.app/F0nKbxWU/raw", note="Reported as buggy"},
+    {name="TheWorst free original", url="https://raw.githubusercontent.com/m1kp0/ftap/refs/heads/main/TheWorstFreeLoader.lua"},
+}
+for i, s in ipairs(SOURCES) do
+    s.id = ("src_%03d"):format(i)
+    s.loadCode = ('loadstring(game:HttpGet("%s"))()'):format(s.url)
+    s.loader = s.loadCode
+    s.status = "unknown"
+    s.lastCheck = 0
+end
+
+local function loadSource(source)
+    if type(source) ~= "table" then return false, "No source" end
+    if not source.loadCode then return false, "loadCode empty" end
+    local loader = getLoader()
+    if not loader then return false, "Executor does not support loadstring" end
+    local ok1, fn, err = pcall(loader, source.loadCode)
+    if not ok1 or type(fn) ~= "function" then
+        return false, "compile error: " .. tostring(err or fn)
+    end
+    local ok2, runErr = pcall(fn)
+    if not ok2 then return false, "runtime error: " .. tostring(runErr) end
+    return true, "loaded " .. tostring(source.name)
+end
+
+local function checkSource(s)
+    if not s or not s.url then return "red", "No URL" end
+    local ok, body = httpGet(s.url)
+    if not ok then return "red", "HTTP fail" end
+    if #body < 20 then return "red", "Empty" end
+    local low = body:lower()
+    if low:find("<html",1,true) or low:find("<!doctype",1,true) then return "red", "HTML instead of code" end
+    if #body > 25000000 then return "yellow", "Very large" end
+    if not body:find("end",1,true) and not low:find("loadstring",1,true) then
+        return "yellow", "Unusual structure"
+    end
+    return "green", ("OK • %d b"):format(#body)
+end
+
+local function defaultState()
+    local fav, auto = {}, {}
+    for _, s in ipairs(SOURCES) do fav[s.id]=false; auto[s.id]=false end
+    return {
+        version=VERSION, favorites=fav, autoload=auto,
+        selected=SOURCES[1].id, search="",
+        ui={position=nil, visible=true},
+        menuKeybind = IS_PC and "RightShift" or nil,
+        fabPosition = {xs=0, xo=16, ys=0.5, yo=-28},
+        buttons = {},
+    }
+end
+
+local function defaultConfigs()
+    return {
+        version=VERSION, active="Default",
+        profiles={ Default = {
+            version=VERSION, created=os.time(), updated=os.time(),
+            favorites={}, autoload={}, loadOnActivate={}, selected=nil, search="",
+        }},
+        autoloadProfile="Default",
+    }
+end
+
+local state = (function()
+    local raw = readFile(STATE_FILE)
+    if not raw then return defaultState() end
+    local ok, d = pcall(function() return HttpService:JSONDecode(raw) end)
+    return (ok and type(d)=="table") and d or defaultState()
+end)()
+
+local configs = (function()
+    local raw = readFile(CFG_FILE)
+    if not raw then return defaultConfigs() end
+    local ok, d = pcall(function() return HttpService:JSONDecode(raw) end)
+    return (ok and type(d)=="table") and d or defaultConfigs()
+end)()
+
+configs.profiles = configs.profiles or {}
+configs.profiles.Default = configs.profiles.Default or defaultConfigs().profiles.Default
+configs.profiles.Default.loadOnActivate = configs.profiles.Default.loadOnActivate or {}
+state.ui = state.ui or {}
+state.buttons = state.buttons or {}
+state.fabPosition = state.fabPosition or {xs=0, xo=16, ys=0.5, yo=-28}
+if not state.menuKeybind and IS_PC then state.menuKeybind = "RightShift" end
+
+local function persistState() mkdir(); writeFile(STATE_FILE, HttpService:JSONEncode(state)) end
+local function persistConfigs() mkdir(); writeFile(CFG_FILE, HttpService:JSONEncode(configs)) end
+
+local function profileFromState()
+    return {
+        version=VERSION, created=os.time(), updated=os.time(),
+        favorites=state.favorites or {}, autoload=state.autoload or {},
+        loadOnActivate=(configs.profiles[configs.active] and configs.profiles[configs.active].loadOnActivate) or {},
+        selected=state.selected, search=state.search or "",
+    }
+end
+
+local function applyProfile(p)
+    p = type(p)=="table" and p or {}
+    state.favorites = type(p.favorites)=="table" and p.favorites or {}
+    state.autoload = type(p.autoload)=="table" and p.autoload or {}
+    state.selected = p.selected
+    state.search = p.search or ""
+    persistState()
+end
+
+local function saveConfig(name)
+    name = tostring(name or ""):gsub("^%s+",""):gsub("%s+$","")
+    if name == "" then return false, "Empty name" end
+    name = name:gsub("[\\/:*?\"<>|]","_")
+    local p = profileFromState(); p.updated = os.time()
+    configs.profiles[name] = p
+    configs.active = name
+    persistConfigs()
+    return true
+end
+
+local function loadConfig(name, execute)
+    local p = configs.profiles[name]
+    if type(p) ~= "table" then return false, "Config not found" end
+    applyProfile(p)
+    configs.active = name
+    persistConfigs()
+    if execute then
+        local results = {}
+        for _, id in ipairs(p.loadOnActivate or {}) do
+            for _, s in ipairs(SOURCES) do
+                if s.id == id then
+                    local ok, msg = loadSource(s)
+                    table.insert(results, s.name .. ": " .. tostring(msg))
+                end
+            end
+        end
+        return true, results
+    end
+    return true, {}
+end
+
+local function deleteConfig(name)
+    if name == "Default" then return false, "Default cannot be deleted" end
+    if not configs.profiles[name] then return false, "Not found" end
+    configs.profiles[name] = nil
+    if configs.active == name then configs.active = "Default" end
+    persistConfigs()
+    return true
+end
+
+local function renameConfig(oldName, newName)
+    if oldName == "Default" then return false, "Default cannot be renamed" end
+    if not configs.profiles[oldName] then return false, "Not found" end
+    newName = tostring(newName or ""):gsub("^%s+",""):gsub("%s+$","")
+    if newName == "" then return false, "Empty name" end
+    if configs.profiles[newName] then return false, "Name taken" end
+    configs.profiles[newName] = configs.profiles[oldName]
+    configs.profiles[oldName] = nil
+    if configs.active == oldName then configs.active = newName end
+    persistConfigs()
+    return true
+end
+
+local function duplicateConfig(name, newName)
+    if not configs.profiles[name] then return false, "Not found" end
+    if configs.profiles[newName] then return false, "Name taken" end
+    local ok, clone = pcall(function()
+        return HttpService:JSONDecode(HttpService:JSONEncode(configs.profiles[name]))
+    end)
+    if not ok then return false, "Clone fail" end
+    clone.updated = os.time()
+    configs.profiles[newName] = clone
+    persistConfigs()
+    return true
+end
+
+local function exportConfig(name)
+    local p = configs.profiles[name]
+    if not p then return false, "Not found" end
+    local payload = { format="KazbekConfig", version=VERSION, name=name, data=p }
+    local text = HttpService:JSONEncode(payload)
+    if copyText(text) then return true, text end
+    return false, text
+end
+
+local function importConfig(text, forcedName)
+    if type(text) ~= "string" or text == "" then return false, "Empty" end
+    local ok, payload = pcall(function() return HttpService:JSONDecode(text) end)
+    if not ok or type(payload) ~= "table" then return false, "Bad JSON" end
+    local p = payload.data or payload
+    if type(p) ~= "table" then return false, "Bad data" end
+    local name = forcedName or payload.name or ("Imported_"..os.time())
+    name = tostring(name):gsub("[\\/:*?\"<>|]","_")
+    if name == "" then name = "Imported_"..os.time() end
+    p.loadOnActivate = p.loadOnActivate or {}
+    configs.profiles[name] = p
+    configs.active = name
+    persistConfigs()
+    return true, name
+end
+
+local BULK_COUNTER = 0
+
+local function parseBulkLine(line)
+    line = tostring(line or ""):gsub("^%s+",""):gsub("%s+$","")
+    if line == "" then return nil end
+    if line:match("^https?://") then
+        return {
+            name = "Bulk_"..BULK_COUNTER.."_"..line:sub(-20),
+            url = line,
+            loadCode = ('loadstring(game:HttpGet("%s"))()'):format(line),
+        }
+    end
+    if line:find("loadstring",1,true) then
+        return { name="Bulk_"..BULK_COUNTER.."_inline", url="(inline)", loadCode=line }
+    end
+    return {
+        name = "Bulk_"..BULK_COUNTER,
+        url = line,
+        loadCode = ('loadstring(game:HttpGet("%s"))()'):format(line),
+    }
+end
+
+local function bulkParse(text)
+    local added, skipped = 0, 0
+    for line in tostring(text or ""):gmatch("[^\r\n]+") do
+        BULK_COUNTER += 1
+        local e = parseBulkLine(line)
+        if e then
+            e.id = ("bulk_%04d"):format(BULK_COUNTER)
+            e.loader = e.loadCode
+            e.status = "unknown"
+            e.lastCheck = 0
+            e.isBulk = true
+            table.insert(SOURCES, e)
+            added += 1
+        else
+            skipped += 1
+        end
+    end
+    return added, skipped
+end
+
+local function bulkLoadAll()
+    local okc, failc = 0, 0
+    for _, s in ipairs(SOURCES) do
+        if s.isBulk then
+            local ok = loadSource(s)
+            if ok then okc += 1 else failc += 1 end
+            task.wait(0.1)
+        end
+    end
+    return okc, failc
+end
+
+local function bulkAddAllToProfile()
+    local prof = configs.profiles[configs.active or "Default"]
+    if not prof then return false, "No profile" end
+    prof.loadOnActivate = prof.loadOnActivate or {}
+    local added = 0
+    for _, s in ipairs(SOURCES) do
+        if s.isBulk then
+            local exists = false
+            for _, id in ipairs(prof.loadOnActivate) do
+                if id == s.id then exists = true break end
+            end
+            if not exists then table.insert(prof.loadOnActivate, s.id); added += 1 end
+        end
+    end
+    persistConfigs()
+    return true, added
+end
+
+local function bulkClear()
+    local keep = {}
+    for _, s in ipairs(SOURCES) do if not s.isBulk then table.insert(keep, s) end end
+    SOURCES = keep
+    BULK_COUNTER = 0
+end
+
+local FTAP_AntiLag = false
+local FTAP_AntiGrab = false
+local FTAP_AntiKick = false
+
+local function FTAP_StartAntiLag()
+    task.spawn(function()
+        while FTAP_AntiLag do
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if not FTAP_AntiLag then break end
+                if v:IsA("Beam") then
+                    local a0 = v.Attachment0
+                    if a0 and a0.Parent then
+                        local model = a0.Parent:FindFirstAncestorOfClass("Model")
+                        if model and model:FindFirstChildOfClass("Humanoid") then
+                            continue
+                        end
+                    end
+                    pcall(function() v:Destroy() end)
+                end
+            end
+            for _, obj in ipairs(workspace:GetChildren()) do
+                if not FTAP_AntiLag then break end
+                if obj:IsA("BasePart") and not obj.Anchored then
+                    local model = obj:FindFirstAncestorOfClass("Model")
+                    if not model or not model:FindFirstChildOfClass("Humanoid") then
+                        pcall(function() obj:Destroy() end)
+                    end
+                end
+            end
+            task.wait(2)
+        end
+    end)
+end
+
+local function FTAP_StartAntiGrab()
+    task.spawn(function()
+        local RS = game:GetService("ReplicatedStorage")
+        local Struggle = RS:FindFirstChild("CharacterEvents") and RS.CharacterEvents:FindFirstChild("Struggle")
+        while FTAP_AntiGrab do
+            local char = LocalPlayer.Character
+            if char then
+                local head = char:FindFirstChild("Head")
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if head and head:FindFirstChild("PartOwner") and hum and hrp then
+                    pcall(function()
+                        if Struggle then Struggle:FireServer(LocalPlayer) end
+                    end)
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    hrp.AssemblyAngularVelocity = Vector3.zero
+                end
+            end
+            task.wait(0.1)
+        end
+    end)
+end
+
+local function FTAP_StartAntiKick()
+    task.spawn(function()
+        while FTAP_AntiKick do
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health <= 0 then
+                    hum.Health = hum.MaxHealth
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+local ActionRegistry = {
+    FTAP_AntiLag = function(v)
+        FTAP_AntiLag = v
+        if v then FTAP_StartAntiLag() end
+    end,
+    FTAP_AntiGrab = function(v)
+        FTAP_AntiGrab = v
+        if v then FTAP_StartAntiGrab() end
+    end,
+    FTAP_AntiKick = function(v)
+        FTAP_AntiKick = v
+        if v then FTAP_StartAntiKick() end
+    end,
+    RunCurrentSource = function()
+        local s = sourceById(state.selected)
+        if s then loadSource(s) end
+    end,
+    LoadAllBulk = function()
+        task.spawn(function() bulkLoadAll() end)
+    end,
+    ToggleMenu = function()
+        if Library and Library.Toggle then Library:Toggle() end
+    end,
+}
+
+local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
+local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
+local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+local Window = Library:CreateWindow({
+    Title = "KAZBEK SCRIPT",
+    Footer = "v"..VERSION.." | "..PLATFORM,
+    Icon = 13639308918,
+    NotifySide = "Right",
+    ShowCustomCursor = true,
+    EnableCompacting = true,
+    SidebarCompacted = false,
+    SearchbarSize = UDim2.fromScale(0.45, 1),
+    CornerRadius = 24,
+})
+
+ThemeManager:SetLibrary(Library)
+ThemeManager:SetDefaultTheme({
+    AccentColor = Color3.fromRGB(255, 60, 80),
+    OutlineColor = Color3.fromRGB(80, 80, 90),
+    FontFace = "BuilderSans",
+})
+
+local Tabs = {
+    Sources = Window:AddTab("Sources", "package"),
+    Bulk = Window:AddTab("Bulk", "clipboard-list"),
+    Favorites = Window:AddTab("Favorites", "star"),
+    FTAP = Window:AddTab("FTAP", "shield"),
+    Binds = Window:AddTab("Binds", "keyboard"),
+    Settings = Window:AddTab("Settings", "wrench"),
+}
+
+local currentId = state.selected or SOURCES[1].id
+function sourceById(id)
+    for _, s in ipairs(SOURCES) do if s.id == id then return s end end
+end
+
+local sourceNames = {}
+for _, s in ipairs(SOURCES) do table.insert(sourceNames, s.name) end
+
+local SourcesLeft = Tabs.Sources:AddLeftGroupbox("Sources")
+local SourcesInfo = Tabs.Sources:AddRightGroupbox("Info")
+local SourcesAct = Tabs.Sources:AddRightGroupbox("Actions")
+
+SourcesLeft:AddDropdown("SourceSelect", {
+    Text = "Source",
+    Values = sourceNames,
+    Default = 1,
+    Searchable = true,
+    Callback = function(Value)
+        for _, s in ipairs(SOURCES) do
+            if s.name == Value then
+                currentId = s.id
+                state.selected = s.id
+                persistState()
+                break
+            end
+        end
+        updateSourceDetails()
+    end,
+})
+
+SourcesLeft:AddButton({
+    Text = "Refresh List",
+    Func = function()
+        local new = {}
+        for _, s in ipairs(SOURCES) do table.insert(new, s.name) end
+        Options.SourceSelect:SetValues(new)
+    end,
+    DoubleClick = false,
+})
+
+local detName = SourcesInfo:AddLabel("Source: —")
+local detStatus = SourcesInfo:AddLabel("Status: —")
+local detURL = SourcesInfo:AddLabel("URL: —")
+local detMeta = SourcesInfo:AddLabel("loadCode: —")
+
+function statusText(st)
+    if st == "green" then return "OK"
+    elseif st == "yellow" then return "Suspicious"
+    elseif st == "red" then return "Unavailable"
+    else return "Unknown" end
+end
+
+function updateSourceDetails()
+    local s = sourceById(currentId)
+    if not s then return end
+    detName:SetText("Source: "..s.name)
+    detStatus:SetText("Status: "..statusText(s.status))
+    detURL:SetText("URL: "..s.url)
+    local prof = configs.profiles[configs.active]
+    local inProf = false
+    if prof and prof.loadOnActivate then
+        for _, id in ipairs(prof.loadOnActivate) do
+            if id == s.id then inProf = true break end
+        end
+    end
+    detMeta:SetText("loadCode: "..(s.loadCode and "ready" or "none").."  •  In profile: "..(inProf and "yes" or "no"))
+end
+
+SourcesAct:AddButton({
+    Text = "Copy loadCode",
+    Func = function()
+        local s = sourceById(currentId)
+        if s and copyText(s.loadCode) then
+            Library:Notify({Title="KAZBEK", Description="Copied", Duration=2})
+        end
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "Check",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        task.spawn(function()
+            local st, msg = checkSource(s)
+            s.status = st
+            s.lastCheck = os.time()
+            updateSourceDetails()
+            Library:Notify({Title="Check", Description=st.." • "..msg, Duration=3})
+        end)
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "RUN SOURCE",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        local ok, msg = loadSource(s)
+        Library:Notify({Title="KAZBEK", Description=ok and ("Loaded: "..s.name) or ("Error: "..tostring(msg)), Duration=3})
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "Toggle Favorite",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        state.favorites[s.id] = not state.favorites[s.id]
+        persistState()
+        updateSourceDetails()
+        Library:Notify({Title="KAZBEK", Description=(state.favorites[s.id] and "Added to favorites" or "Removed from favorites"), Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "Toggle Autoload",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        state.autoload[s.id] = not state.autoload[s.id]
+        persistState()
+        Library:Notify({Title="KAZBEK", Description=(state.autoload[s.id] and "Autoload ON" or "Autoload OFF"), Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "Add To Profile",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        local prof = configs.profiles[configs.active or "Default"]
+        if not prof then return end
+        prof.loadOnActivate = prof.loadOnActivate or {}
+        for _, id in ipairs(prof.loadOnActivate) do
+            if id == s.id then
+                Library:Notify({Title="KAZBEK", Description="Already in profile", Duration=2})
+                return
+            end
+        end
+        table.insert(prof.loadOnActivate, s.id)
+        persistConfigs()
+        updateSourceDetails()
+        Library:Notify({Title="KAZBEK", Description="Added: "..s.name, Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+SourcesAct:AddButton({
+    Text = "Remove From Profile",
+    Func = function()
+        local s = sourceById(currentId)
+        if not s then return end
+        local prof = configs.profiles[configs.active or "Default"]
+        if not prof or not prof.loadOnActivate then return end
+        for i, id in ipairs(prof.loadOnActivate) do
+            if id == s.id then
+                table.remove(prof.loadOnActivate, i)
+                persistConfigs()
+                updateSourceDetails()
+                Library:Notify({Title="KAZBEK", Description="Removed: "..s.name, Duration=2})
+                return
+            end
+        end
+    end,
+    DoubleClick = false,
+})
+
+local bulkText = ""
+local BulkLeft = Tabs.Bulk:AddLeftGroupbox("Bulk Import")
+local BulkRight = Tabs.Bulk:AddRightGroupbox("Actions")
+
+BulkLeft:AddInput("BulkInput", {
+    Text = "Lines",
+    Default = "",
+    Placeholder = "https://example.com/a.lua\nloadstring(game:HttpGet(\"https://example.com/b.lua\"))()",
+    Numeric = false,
+    Finished = true,
+    Callback = function(Value) bulkText = Value end,
+})
+
+BulkRight:AddButton({
+    Text = "PARSE",
+    Func = function()
+        if bulkText == "" then
+            Library:Notify({Title="Bulk", Description="Empty", Duration=2})
+            return
+        end
+        local a, sk = bulkParse(bulkText)
+        Library:Notify({Title="Bulk", Description=("Added: %d, skipped: %d"):format(a, sk), Duration=3})
+        local new = {}
+        for _, s in ipairs(SOURCES) do table.insert(new, s.name) end
+        Options.SourceSelect:SetValues(new)
+    end,
+    DoubleClick = false,
+})
+
+BulkRight:AddButton({
+    Text = "LOAD ALL",
+    Func = function()
+        task.spawn(function()
+            local ok, fail = bulkLoadAll()
+            Library:Notify({Title="Bulk", Description=("Loaded: %d, failed: %d"):format(ok, fail), Duration=4})
+        end)
+    end,
+    DoubleClick = false,
+})
+
+BulkRight:AddButton({
+    Text = "ADD ALL TO PROFILE",
+    Func = function()
+        local ok, res = bulkAddAllToProfile()
+        Library:Notify({Title="Bulk", Description=ok and ("Added: "..tostring(res)) or ("Error: "..tostring(res)), Duration=3})
+    end,
+    DoubleClick = false,
+})
+
+BulkRight:AddButton({
+    Text = "CLEAR",
+    Func = function()
+        bulkClear()
+        Library:Notify({Title="Bulk", Description="Cleared", Duration=2})
+        local new = {}
+        for _, s in ipairs(SOURCES) do table.insert(new, s.name) end
+        Options.SourceSelect:SetValues(new)
+    end,
+    DoubleClick = false,
+})
+
+local FavLeft = Tabs.Favorites:AddLeftGroupbox("Favorites")
+
+function refreshFavorites()
+    local favNames = {}
+    for _, s in ipairs(SOURCES) do
+        if state.favorites[s.id] then table.insert(favNames, s.name) end
+    end
+    if #favNames == 0 then favNames = {"(empty)"} end
+    if Options.FavSelect then
+        Options.FavSelect:SetValues(favNames)
+    end
+end
+
+FavLeft:AddDropdown("FavSelect", {
+    Text = "Favorites",
+    Values = {"(empty)"},
+    Default = 1,
+    Searchable = true,
+    Callback = function(Value)
+        if Value == "(empty)" then return end
+        for _, s in ipairs(SOURCES) do
+            if s.name == Value then
+                currentId = s.id
+                state.selected = s.id
+                persistState()
+                updateSourceDetails()
+                break
+            end
+        end
+    end,
+})
+
+FavLeft:AddButton({
+    Text = "Refresh",
+    Func = function() refreshFavorites() end,
+    DoubleClick = false,
+})
+
+local FTAPLeft = Tabs.FTAP:AddLeftGroupbox("Core")
+local FTAPRight = Tabs.FTAP:AddRightGroupbox("Info")
+
+FTAPLeft:AddToggle("FTAP_AntiLag", {
+    Text = "Anti Lag",
+    Default = false,
+    Callback = ActionRegistry.FTAP_AntiLag,
+})
+
+FTAPLeft:AddToggle("FTAP_AntiGrab", {
+    Text = "Anti Grab",
+    Default = false,
+    Callback = ActionRegistry.FTAP_AntiGrab,
+})
+
+FTAPLeft:AddToggle("FTAP_AntiKick", {
+    Text = "Anti Kick",
+    Default = false,
+    Callback = ActionRegistry.FTAP_AntiKick,
+})
+
+FTAPRight:AddLabel("Anti Lag removes replicated beams and loose parts.")
+FTAPRight:AddLabel("Anti Grab prevents part ownership retention.")
+FTAPRight:AddLabel("Anti Kick restores health when zero.")
+
+local BindsLeft = Tabs.Binds:AddLeftGroupbox("Keybinds")
+local BindsRight = Tabs.Binds:AddRightGroupbox("Mobile Buttons")
+
+BindsLeft:AddLabel("Menu Keybind"):AddKeyPicker("MenuKeybind", {
+    Default = state.menuKeybind or "RightShift",
+    NoUI = false,
+    Text = "Menu Keybind",
+    Mode = "Toggle",
+    Callback = function(Value)
+        state.menuKeybind = Value
+        persistState()
+    end,
+})
+
+BindsLeft:AddButton({
+    Text = "Reset Menu Keybind",
+    Func = function()
+        state.menuKeybind = "RightShift"
+        persistState()
+        Options.MenuKeybind:SetValue("RightShift")
+        Library:Notify({Title="KAZBEK", Description="Menu keybind set to RightShift", Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+BindsLeft:AddInput("NewButtonName", {
+    Text = "Button Name",
+    Default = "",
+    Placeholder = "Label on button",
+    Numeric = false,
+    Finished = true,
+    Callback = function() end,
+})
+
+BindsLeft:AddDropdown("NewButtonAction", {
+    Text = "Action",
+    Values = {"FTAP_AntiLag", "FTAP_AntiGrab", "FTAP_AntiKick", "RunCurrentSource", "LoadAllBulk", "ToggleMenu"},
+    Default = 1,
+    Searchable = false,
+    Callback = function() end,
+})
+
+BindsLeft:AddButton({
+    Text = "Create Mobile Button",
+    Func = function()
+        local label = tostring(Options.NewButtonName.Value or ""):gsub("^%s+",""):gsub("%s+$","")
+        if label == "" then label = "Button "..tostring(#state.buttons + 1) end
+        local action = Options.NewButtonAction.Value or "FTAP_AntiLag"
+        local id = "btn_"..os.time().."_"..math.random(1000,9999)
+        state.buttons[id] = {
+            label = label,
+            action = action,
+            xs = 0, xo = 16,
+            ys = 0.5, yo = -28 - (#state.buttons * 60),
+            visible = true,
+        }
+        persistState()
+        Library:Notify({Title="KAZBEK", Description="Button created: "..label, Duration=2})
+        refreshMobileButtons()
+    end,
+    DoubleClick = false,
+})
+
+BindsLeft:AddDropdown("ExistingButtons", {
+    Text = "Existing Buttons",
+    Values = {"(none)"},
+    Default = 1,
+    Searchable = false,
+    Callback = function() end,
+})
+
+BindsLeft:AddButton({
+    Text = "Refresh Buttons",
+    Func = function()
+        local list = {}
+        for id, b in pairs(state.buttons) do table.insert(list, b.label .. "  ["..id.."]") end
+        if #list == 0 then list = {"(none)"} end
+        Options.ExistingButtons:SetValues(list)
+    end,
+    DoubleClick = false,
+})
+
+BindsLeft:AddButton({
+    Text = "Delete Selected Button",
+    Func = function()
+        local cur = Options.ExistingButtons.Value
+        if not cur or cur == "(none)" then return end
+        local id = cur:match("%[([^%]]+)%]")
+        if id and state.buttons[id] then
+            state.buttons[id] = nil
+            persistState()
+            Library:Notify({Title="KAZBEK", Description="Button deleted", Duration=2})
+            refreshMobileButtons()
+        end
+    end,
+    DoubleClick = false,
+})
+
+BindsRight:AddLabel("Mobile / Tablet only")
+BindsRight:AddLabel("Create floating action buttons")
+BindsRight:AddLabel("Drag to move, tap to run")
+
+-- SETTINGS — всё в одном месте
+local SetLeft = Tabs.Settings:AddLeftGroupbox("Info")
+local SetRight = Tabs.Settings:AddRightGroupbox("State")
+local ObsConfig = Tabs.Settings:AddLeftGroupbox("Obsidian Config")
+local KazConfig = Tabs.Settings:AddRightGroupbox("Kazbek Profile Config")
+
+local execName, execHasLS, execMode = executorName(), hasLoadstring()
+
+SetLeft:AddLabel("Platform: "..PLATFORM)
+SetLeft:AddLabel("Executor: "..execName)
+SetLeft:AddLabel("loadstring: "..(execHasLS and ("OK • "..execMode) or "NONE"))
+SetLeft:AddLabel("Filesystem: "..(type(writefile)=="function" and "OK" or "NONE"))
+SetLeft:AddLabel("Clipboard: "..((type(setclipboard)=="function" or type(toclipboard)=="function" or type(writeclipboard)=="function") and "OK" or "NONE"))
+SetLeft:AddLabel("Auto-check interval: 5s")
+SetLeft:AddLabel("Menu keybind: "..tostring(state.menuKeybind or "N/A"))
+
+SetRight:AddButton({
+    Text = "RESET STATE",
+    Func = function()
+        state = defaultState()
+        persistState()
+        updateSourceDetails()
+        refreshFavorites()
+        refreshMobileButtons()
+        Library:Notify({Title="KAZBEK", Description="State reset", Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+-- Obsidian SaveManager
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
+ThemeManager:SetFolder("Kazbek")
+SaveManager:SetFolder("Kazbek/ObsidianConfigs")
+SaveManager:SetSubFolder("game-config")
+ThemeManager:ApplyToTab(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+-- Kazbek profile config UI (in Settings)
+local cfgName = "Default"
+local cfgNamesList = {}
+for n, _ in pairs(configs.profiles) do table.insert(cfgNamesList, n) end
+table.sort(cfgNamesList)
+if #cfgNamesList == 0 then cfgNamesList = {"Default"} end
+
+KazConfig:AddInput("ConfigName", {
+    Text = "Profile Name",
+    Default = "Default",
+    Placeholder = "Name",
+    Numeric = false,
+    Finished = true,
+    Callback = function(Value) cfgName = Value end,
+})
+
+KazConfig:AddDropdown("ConfigSelect", {
+    Text = "Existing Profiles",
+    Values = cfgNamesList,
+    Default = 1,
+    Searchable = true,
+    Callback = function(Value)
+        cfgName = Value
+        configs.active = Value
+        persistConfigs()
+    end,
+})
+
+KazConfig:AddButton({
+    Text = "SAVE",
+    Func = function()
+        local ok, err = saveConfig(cfgName)
+        Library:Notify({Title="Profile", Description=ok and "Saved" or ("Error: "..tostring(err)), Duration=2})
+        local names = {}
+        for n, _ in pairs(configs.profiles) do table.insert(names, n) end
+        table.sort(names)
+        Options.ConfigSelect:SetValues(names)
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "LOAD + RUN",
+    Func = function()
+        local ok, res = loadConfig(cfgName, true)
+        if ok then
+            updateSourceDetails()
+            refreshFavorites()
+            Library:Notify({Title="Profile", Description="Loaded, executed: "..#(res or {}), Duration=3})
+            for _, line in ipairs(res or {}) do print("[Kazbek] "..line) end
+        else
+            Library:Notify({Title="Profile", Description="Error: "..tostring(res), Duration=3})
+        end
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "DELETE",
+    Func = function()
+        local ok, err = deleteConfig(cfgName)
+        Library:Notify({Title="Profile", Description=ok and "Deleted" or ("Error: "..tostring(err)), Duration=2})
+        local names = {}
+        for n, _ in pairs(configs.profiles) do table.insert(names, n) end
+        table.sort(names)
+        Options.ConfigSelect:SetValues(names)
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "RENAME",
+    Func = function()
+        local new = cfgName.."_Renamed"
+        local ok, err = renameConfig(cfgName, new)
+        if ok then cfgName = new end
+        Library:Notify({Title="Profile", Description=ok and ("Renamed to "..new) or ("Error: "..tostring(err)), Duration=2})
+        local names = {}
+        for n, _ in pairs(configs.profiles) do table.insert(names, n) end
+        table.sort(names)
+        Options.ConfigSelect:SetValues(names)
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "DUPLICATE",
+    Func = function()
+        local new = cfgName.."_Copy"
+        local ok, err = duplicateConfig(cfgName, new)
+        if ok then cfgName = new end
+        Library:Notify({Title="Profile", Description=ok and ("Copied to "..new) or ("Error: "..tostring(err)), Duration=2})
+        local names = {}
+        for n, _ in pairs(configs.profiles) do table.insert(names, n) end
+        table.sort(names)
+        Options.ConfigSelect:SetValues(names)
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "EXPORT",
+    Func = function()
+        local ok, text = exportConfig(cfgName)
+        if ok or copyText(text or "") then
+            Library:Notify({Title="Profile", Description="JSON copied", Duration=2})
+        else
+            Library:Notify({Title="Profile", Description="Export failed", Duration=2})
+        end
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "IMPORT JSON",
+    Func = function()
+        if not cfgName:find("{", 1, true) then
+            Library:Notify({Title="Profile", Description="Paste JSON into name field", Duration=2})
+            return
+        end
+        local ok, name = importConfig(cfgName)
+        if ok then
+            cfgName = name
+            Library:Notify({Title="Profile", Description="Imported: "..name, Duration=2})
+            local names = {}
+            for n, _ in pairs(configs.profiles) do table.insert(names, n) end
+            table.sort(names)
+            Options.ConfigSelect:SetValues(names)
+        else
+            Library:Notify({Title="Profile", Description="Import error", Duration=2})
+        end
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "SET AUTOLOAD",
+    Func = function()
+        if not configs.profiles[cfgName] then
+            Library:Notify({Title="Profile", Description="Save profile first", Duration=2})
+            return
+        end
+        configs.autoloadProfile = cfgName
+        persistConfigs()
+        Library:Notify({Title="Profile", Description="Autoload: "..cfgName, Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "CLEAR AUTOLOAD",
+    Func = function()
+        configs.autoloadProfile = nil
+        persistConfigs()
+        Library:Notify({Title="Profile", Description="Autoload cleared", Duration=2})
+    end,
+    DoubleClick = false,
+})
+
+KazConfig:AddButton({
+    Text = "LOAD AUTOLOAD",
+    Func = function()
+        if not configs.autoloadProfile then
+            Library:Notify({Title="Profile", Description="Autoload not set", Duration=2})
+            return
+        end
+        local ok, res = loadConfig(configs.autoloadProfile, true)
+        if ok then
+            updateSourceDetails()
+            refreshFavorites()
+            Library:Notify({Title="Profile", Description="Autoload executed: "..#(res or {}), Duration=3})
+            for _, line in ipairs(res or {}) do print("[Kazbek] "..line) end
+        end
+    end,
+    DoubleClick = false,
+})
+
+-- Mobile buttons gui
+local ButtonsGui = Instance.new("ScreenGui")
+ButtonsGui.Name = "KazbekMobileButtons"
+ButtonsGui.ResetOnSpawn = false
+ButtonsGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() ButtonsGui.Parent = CoreGui end)
+if not ButtonsGui.Parent then ButtonsGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local activeButtons = {}
+
+local function bindDrag(btn, id)
+    local dragging, startPos, startPosBtn, moved
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            moved = false
+            startPos = input.Position
+            startPosBtn = btn.Position
+        end
+    end)
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            if not moved then
+                local action = state.buttons[id] and state.buttons[id].action
+                if action and ActionRegistry[action] then
+                    if action == "FTAP_AntiLag" then ActionRegistry[action](not FTAP_AntiLag)
+                    elseif action == "FTAP_AntiGrab" then ActionRegistry[action](not FTAP_AntiGrab)
+                    elseif action == "FTAP_AntiKick" then ActionRegistry[action](not FTAP_AntiKick)
+                    else ActionRegistry[action]() end
+                end
+            end
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+            local delta = input.Position - startPos
+            if math.abs(delta.X) + math.abs(delta.Y) > 5 then moved = true end
+            btn.Position = UDim2.new(
+                startPosBtn.X.Scale, startPosBtn.X.Offset + delta.X,
+                startPosBtn.Y.Scale, startPosBtn.Y.Offset + delta.Y
+            )
+            state.buttons[id].xs = btn.Position.X.Scale
+            state.buttons[id].xo = btn.Position.X.Offset
+            state.buttons[id].ys = btn.Position.Y.Scale
+            state.buttons[id].yo = btn.Position.Y.Offset
+            persistState()
+        end
+    end)
+end
+
+function refreshMobileButtons()
+    for _, b in pairs(activeButtons) do pcall(function() b:Destroy() end) end
+    activeButtons = {}
+    if not IS_TOUCH then return end
+    for id, cfg in pairs(state.buttons) do
+        if cfg.visible ~= false then
+            local btn = Instance.new("TextButton")
+            btn.Name = "Kazbek_"..id
+            btn.Size = UDim2.fromOffset(54, 54)
+            btn.Position = UDim2.new(cfg.xs or 0, cfg.xo or 16, cfg.ys or 0.5, cfg.yo or -28)
+            btn.BackgroundColor3 = Color3.fromRGB(160, 30, 40)
+            btn.Text = cfg.label or "BTN"
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.TextSize = 11
+            btn.Font = Enum.Font.GothamBold
+            btn.TextWrapped = true
+            btn.ZIndex = 50
+            btn.Parent = ButtonsGui
+            local c = Instance.new("UICorner"); c.CornerRadius = UDim.new(0, 27); c.Parent = btn
+            local s = Instance.new("UIStroke"); s.Color = Color3.fromRGB(255, 120, 130); s.Thickness = 2; s.Parent = btn
+            activeButtons[id] = btn
+            bindDrag(btn, id)
+        end
+    end
+end
+
+local FabGui = Instance.new("ScreenGui")
+FabGui.Name = "KazbekFab"
+FabGui.ResetOnSpawn = false
+FabGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+pcall(function() FabGui.Parent = CoreGui end)
+if not FabGui.Parent then FabGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+local Fab = Instance.new("TextButton")
+Fab.Name = "KazbekFabToggle"
+Fab.Size = UDim2.fromOffset(54, 54)
+Fab.Position = UDim2.new(state.fabPosition.xs or 0, state.fabPosition.xo or 16, state.fabPosition.ys or 0.5, state.fabPosition.yo or -28)
+Fab.BackgroundColor3 = Color3.fromRGB(255, 60, 80)
+Fab.Text = "K"
+Fab.TextColor3 = Color3.fromRGB(255,255,255)
+Fab.TextSize = 22
+Fab.Font = Enum.Font.GothamBold
+Fab.Visible = IS_TOUCH
+Fab.ZIndex = 60
+Fab.Parent = FabGui
+local fabCorner = Instance.new("UICorner"); fabCorner.CornerRadius = UDim.new(0, 27); fabCorner.Parent = Fab
+local fabStroke = Instance.new("UIStroke"); fabStroke.Color = Color3.fromRGB(255, 180, 190); fabStroke.Thickness = 2; fabStroke.Parent = Fab
+
+local fabDrag, fabStart, fabStartPos, fabMoved
+Fab.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        fabDrag = true
+        fabMoved = false
+        fabStart = input.Position
+        fabStartPos = Fab.Position
+    end
+end)
+Fab.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        fabDrag = false
+        if not fabMoved then
+            if Library and Library.Toggle then Library:Toggle() end
+        end
+    end
+end)
+UIS.InputChanged:Connect(function(input)
+    if fabDrag and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = input.Position - fabStart
+        if math.abs(delta.X) + math.abs(delta.Y) > 5 then fabMoved = true end
+        Fab.Position = UDim2.new(
+            fabStartPos.X.Scale, fabStartPos.X.Offset + delta.X,
+            fabStartPos.Y.Scale, fabStartPos.Y.Offset + delta.Y
+        )
+        state.fabPosition = {
+            xs = Fab.Position.X.Scale, xo = Fab.Position.X.Offset,
+            ys = Fab.Position.Y.Scale, yo = Fab.Position.Y.Offset,
+        }
+        persistState()
+    end
+end)
+
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if IS_PC and state.menuKeybind and input.KeyCode == Enum.KeyCode[state.menuKeybind] then
+        if Library and Library.Toggle then Library:Toggle() end
+    end
+end)
+
+task.spawn(function()
+    task.wait(2)
+    while true do
+        for _, s in ipairs(SOURCES) do
+            task.spawn(function()
+                local ok, body = httpGet(s.url)
+                if not ok or #body < 20 then
+                    s.status = "red"
+                else
+                    local low = body:lower()
+                    if low:find("<html",1,true) or low:find("<!doctype",1,true) then
+                        s.status = "red"
+                    elseif #body > 25000000 then
+                        s.status = "yellow"
+                    else
+                        s.status = "green"
+                    end
+                end
+                s.lastCheck = os.time()
+            end)
+            task.wait(0.05)
+        end
+        pcall(updateSourceDetails)
+        task.wait(5)
+    end
+end)
+
+if configs.autoloadProfile and configs.profiles[configs.autoloadProfile] then
+    local ok, res = loadConfig(configs.autoloadProfile, true)
+    if ok and res and #res > 0 then
+        for _, line in ipairs(res) do print("[Kazbek autoload] "..line) end
+    end
+end
+
+Library.ToggleKeybind = Options.MenuKeybind
+
+_G.KazbekScript = {
+    Version = VERSION,
+    Platform = PLATFORM,
+    Sources = SOURCES,
+    Configs = configs,
+    LoadSource = loadSource,
+    CheckSource = checkSource,
+    BulkParse = bulkParse,
+    BulkLoadAll = bulkLoadAll,
+    BulkAddAllToProfile = bulkAddAllToProfile,
+    BulkClear = bulkClear,
+    SaveConfig = saveConfig,
+    LoadConfig = loadConfig,
+    DeleteConfig = deleteConfig,
+    RenameConfig = renameConfig,
+    DuplicateConfig = duplicateConfig,
+    ExportConfig = exportConfig,
+    ImportConfig = importConfig,
+    UpdateDetails = updateSourceDetails,
+    RefreshFavorites = refreshFavorites,
+    RefreshMobileButtons = refreshMobileButtons,
+    ActionRegistry = ActionRegistry,
+    State = state,
+}
+
+updateSourceDetails()
+refreshFavorites()
+refreshMobileButtons()
+
+Library:Notify({
+    Title = "KAZBEK SCRIPT",
+    Description = "v"..VERSION.." • "..PLATFORM.." • ready",
+    Duration = 5,
+})
+
+print("[KAZBEK] ready, sources: "..#SOURCES..", mobile buttons: "..#activeButtons)

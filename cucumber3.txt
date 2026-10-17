@@ -1,0 +1,228 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/delivery-2347/w/refs/heads/main/super%20puper%20optimezison"))()
+
+local CUCUMBER = {
+    SchemeColor = Color3.fromRGB(45, 160, 95),
+    Background = Color3.fromRGB(8, 18, 12),
+    Header = Color3.fromRGB(12, 30, 20),
+    TextColor = Color3.fromRGB(230, 230, 230),
+    ElementColor = Color3.fromRGB(18, 55, 38)
+}
+
+local Window = Library.CreateLib("Cucumber_BEBFT Hub", CUCUMBER)
+
+local Tab = Window:NewTab("mein")
+local Section = Tab:NewSection("Main")
+
+local Players = game:GetService("Players")
+local VIM = game:GetService("VirtualInputManager")
+
+local player = Players.LocalPlayer
+
+Section:NewKeybind("Toggle UI", "open/close", Enum.KeyCode.B, function()
+    Library:ToggleUI()
+end)
+
+local farmTIME = 1
+local Enabled = false
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local Part
+local Connection
+local charConn
+
+local runId = 0
+
+Section:NewSlider("delay in teleports", "soso", 10, 1, function(timeFARM)
+    farmTIME = timeFARM
+end)
+
+Section:NewToggle("auto farm TP", "", function(state)
+    Enabled = state
+
+    runId += 1
+    local myId = runId
+
+    -- ❌ OFF
+    if not state then
+
+        if Connection then
+            Connection:Disconnect()
+            Connection = nil
+        end
+
+        if Part then
+            Part:Destroy()
+            Part = nil
+        end
+
+        if charConn then
+            charConn:Disconnect()
+            charConn = nil
+        end
+
+        return
+    end
+
+    -- ✅ AIRWALK (ОСТАВИЛ КАК ТЫ СКАЗАЛ)
+    if Part then
+        Part:Destroy()
+    end
+
+    Part = Instance.new("Part")
+    Part.Size = Vector3.new(4,1,4)
+    Part.Anchored = true
+    Part.CanCollide = true
+    Part.Parent = workspace
+
+    Connection = game:GetService("RunService").Heartbeat:Connect(function()
+        local Character = player.Character
+        local Root = Character and Character:FindFirstChild("HumanoidRootPart")
+
+        if Root and Part then
+            Part.Position = Root.Position + Vector3.new(0,-3.5,0)
+        end
+    end)
+
+    -- 🔁 TELEPORT (RESPAWN-SAFE + RESET GATE)
+    local function tp()
+        local Character = player.Character or player.CharacterAdded:Wait()
+        local Root = Character:WaitForChild("HumanoidRootPart")
+
+        local function step(cf)
+            if not Enabled or runId ~= myId then return false end
+            Root.CFrame = cf
+            task.wait(farmTIME)
+            return true
+        end
+
+        if not step(CFrame.new(-105.167564,113.341957,1368.97583)) then return end
+        if not step(CFrame.new(-90.1123886,113.342079,2142.78418)) then return end
+        if not step(CFrame.new(75.1767349,113.342064,2914.53857)) then return end
+        if not step(CFrame.new(-110.502899,115.149529,3678.08765)) then return end
+        if not step(CFrame.new(-113.162552,115.149529,4449.93994)) then return end
+        if not step(CFrame.new(-115.828888,115.149529,5222.73584)) then return end
+        if not step(CFrame.new(-118.45929,115.149529,5985.1167)) then return end
+        if not step(CFrame.new(-121.168747,115.149529,6770.41064)) then return end
+        if not step(CFrame.new(-126.530991,75.1733704,7531.75)) then return end
+        if not step(CFrame.new(-90.3094559,77.1855392,8295.91406)) then return end
+        if not step(CFrame.new(-56.0303154,-359.162079,9487.84277)) then return end
+    end
+
+    -- 🔁 LOOP (СТАРТ ТОЛЬКО ПОСЛЕ RESPAWN)
+    task.spawn(function()
+        while Enabled and runId == myId do
+
+            tp()
+
+            -- 💀 ВАЖНО: ждём РЕСЕТ ПЕРЕД СЛЕДУЮЩИМ ЦИКЛОМ
+            if not Enabled or runId ~= myId then return end
+            player.CharacterAdded:Wait()
+
+        end
+    end)
+
+    -- 🔁 safety respawn handler
+    charConn = player.CharacterAdded:Connect(function()
+        if not Enabled or runId ~= myId then return end
+        task.wait(0.1)
+    end)
+
+end)
+
+local AutoE = false
+
+Section:NewToggle("anti afk", "ezz", function(state)
+    AutoE = state
+end)
+
+task.spawn(function()
+    while true do
+        if AutoE then
+            task.wait(120)
+
+            if AutoE then
+                VIM:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                task.wait(1)
+                VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            end
+        else
+            task.wait(0.1)
+        end
+    end
+end)
+
+local AFKTimerEnabled = false
+
+Section:NewToggle("AFK Timer", "Shows time until AFK kick", function(state)
+    AFKTimerEnabled = state
+
+    if state then
+        task.spawn(function()
+            local UserInputService = game:GetService("UserInputService")
+
+            local player = Players.LocalPlayer
+            local AFK_LIMIT = 20 * 60
+            local lastActivity = os.clock()
+
+            local screenGui = Instance.new("ScreenGui")
+            screenGui.Name = "AFK_Timer"
+            screenGui.ResetOnSpawn = false
+            screenGui.Parent = player.PlayerGui
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0, 220, 0, 50)
+            label.Position = UDim2.new(0, 10, 0, 10)
+            label.BackgroundTransparency = 0.3
+            label.BackgroundColor3 = Color3.fromRGB(20,20,20)
+            label.TextColor3 = Color3.fromRGB(255,255,255)
+            label.Font = Enum.Font.SourceSansBold
+            label.TextSize = 20
+            label.Parent = screenGui
+
+            local function resetActivity()
+                lastActivity = os.clock()
+            end
+
+            local c1 = UserInputService.InputBegan:Connect(resetActivity)
+            local c2 = UserInputService.InputChanged:Connect(resetActivity)
+            local c3 = UserInputService.InputEnded:Connect(resetActivity)
+
+            while AFKTimerEnabled and screenGui.Parent do
+                task.wait(1)
+
+                local idle = os.clock() - lastActivity
+                local remaining = AFK_LIMIT - idle
+
+                if remaining <= 0 then
+                    label.Text = "💀 AFK: КИК СКОРО"
+                    label.TextColor3 = Color3.fromRGB(255,0,0)
+                else
+                    local m = math.floor(remaining / 60)
+                    local s = math.floor(remaining % 60)
+
+                    label.TextColor3 =
+                        remaining <= 120
+                        and Color3.fromRGB(255,80,80)
+                        or Color3.fromRGB(255,255,255)
+
+                    label.Text = string.format("⏳ AFK кик через %02d:%02d", m, s)
+                end
+            end
+
+            c1:Disconnect()
+            c2:Disconnect()
+            c3:Disconnect()
+
+            if screenGui then
+                screenGui:Destroy()
+            end
+        end)
+    else
+        local gui = player.PlayerGui:FindFirstChild("AFK_Timer")
+        if gui then
+            gui:Destroy()
+        end
+    end
+end)
