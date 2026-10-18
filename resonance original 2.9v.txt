@@ -66,12 +66,12 @@ function Intro.Play()
         local center = Instance.new("Frame")
         center.Name = "Title"
         center.AnchorPoint = Vector2.new(0.5, 0.5)
-        center.Position = UDim2.new(0.5, 0, 0.5, 18)
-        center.Size = UDim2.new(0.9, 0, 0.2, 0)
+        center.Position = UDim2.new(0.5, 0, 0.5, 0)
+        center.Size = UDim2.new(0.9, 0, 0.3, 0)
         center.BackgroundTransparency = 1
         center.Parent = shade
         local bounds = Instance.new("UISizeConstraint")
-        bounds.MaxSize = Vector2.new(1100, 150)
+        bounds.MaxSize = Vector2.new(1100, 250)
         bounds.Parent = center
 
         local function animate(object, duration, properties)
@@ -86,8 +86,8 @@ function Intro.Play()
             text.Name = name
             text.Size = UDim2.fromScale(1, 1)
             text.BackgroundTransparency = 1
-            text.Text = "cracked by InLoad and wraith.dev"
-            text.Font = Enum.Font.GothamBold
+            text.Text = "SV" -- Changed to SV
+            text.Font = Enum.Font.GothamThin -- Thin font like iPhone
             text.TextScaled = true
             text.TextWrapped = true
             text.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -96,8 +96,8 @@ function Intro.Play()
             text.ZIndex = zindex
             text.Parent = center
             local limit = Instance.new("UITextSizeConstraint")
-            limit.MinTextSize = 16
-            limit.MaxTextSize = 40
+            limit.MinTextSize = 32
+            limit.MaxTextSize = 200
             limit.Parent = text
             return text
         end
@@ -128,7 +128,6 @@ function Intro.Play()
         task.wait(0.6)
         if closed then return end
         animate(title, 1.8, {TextTransparency = 0})
-        animate(center, 2.4, {Position = UDim2.fromScale(0.5, 0.5)})
         for i, stroke in ipairs(strokes) do
             animate(stroke, 1.8, {Transparency = softGlow[i]})
         end
@@ -147,7 +146,6 @@ function Intro.Play()
             if closed then return end
         end
         animate(title, 1.4, {TextTransparency = 1})
-        animate(center, 1.8, {Position = UDim2.new(0.5, 0, 0.5, -6)})
         for _, stroke in ipairs(strokes) do animate(stroke, 1.4, {Transparency = 1}) end
         task.wait(0.8)
         if closed then return end
